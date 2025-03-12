@@ -173,9 +173,6 @@ const Jadwal: React.FC = () => {
       // Clear local state
       setMatches([]);
       
-      // Update localStorage
-      localStorage.setItem('matches', JSON.stringify([]));
-      
       alert("Semua jadwal pertandingan berhasil dihapus");
     } catch (error) {
       console.error("Error deleting all matches:", error);
