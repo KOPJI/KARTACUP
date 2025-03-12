@@ -414,7 +414,7 @@ export const initializeTeamsData = async (): Promise<void> => {
       },
       {
         name: 'C',
-        teams: ['GANESA A', 'REMAJA PUTRA C', 'PERU FC C', 'PERKID FC', 'PUTRA MANDIRI A', 'DL GUNS A']
+        teams: ['GANESA A', 'REMAJA PUTRA C', 'PERU FC C', 'PERKID FC', 'PUTRA MANDIRI A', 'DL GUNS B']
       },
       {
         name: 'D',
