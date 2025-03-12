@@ -9,15 +9,15 @@ const initialGroups: Group[] = [
   },
   {
     name: 'B',
-    teams: ['DL GUNS', 'TOXNET B', 'PORBA JAYA B', 'PUTRA MANDIRI B', 'REMAJA PUTRA B']
+    teams: ['DL GUNS A', 'TOXNET B', 'PORBA JAYA B', 'PUTRA MANDIRI B', 'REMAJA PUTRA B', 'ARUMBA FC B']
   },
   {
     name: 'C',
-    teams: ['GANESA A', 'REMAJA PUTRA C', 'PERU FC C', 'PERKID FC', 'PUTRA MANDIRI A']
+    teams: ['GANESA A', 'REMAJA PUTRA C', 'PERU FC C', 'PERKID FC', 'PUTRA MANDIRI A', 'DL GUNS A']
   },
   {
     name: 'D',
-    teams: ['LEMKA A', 'BALPAS FC', 'ARUMBA FC', 'GANESA B', 'PERU FC A', 'PELANA FC']
+    teams: ['LEMKA A', 'BALPAS FC', 'ARUMBA FC A', 'GANESA B', 'PERU FC A', 'PELANA FC']
   }
 ];
 
