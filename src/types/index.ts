@@ -10,6 +10,7 @@ export interface Team {
   goalsFor: number;
   goalsAgainst: number;
   points: number;
+  logoUrl?: string;
 }
 
 export interface Player {
@@ -22,6 +23,7 @@ export interface Player {
   yellowCards: number;
   redCards: number;
   isBanned: boolean;
+  photoUrl?: string;
 }
 
 export interface Match {

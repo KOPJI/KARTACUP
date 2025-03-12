@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore, doc, setDoc, collection, getDocs, getDoc, deleteDoc, query, where, addDoc, updateDoc, writeBatch } from "firebase/firestore";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Team, Match, Player, GoalScorer, Card, Group } from "../types";
 import { generateId } from "./dataInitializer";
 
@@ -16,6 +17,7 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const storage = getStorage(app);
 
 // Format tanggal ke dd/mm/yyyy
 export const formatDateToIndonesian = (dateString: string): string => {
@@ -511,4 +513,29 @@ export const initializePlayersData = async (): Promise<void> => {
     console.error("Error initializing players data:", error);
     throw error;
   }
+};
+
+// Upload gambar ke Firebase Storage
+export const uploadImage = async (file: File, path: string): Promise<string> => {
+  try {
+    const storageRef = ref(storage, path);
+    const snapshot = await uploadBytes(storageRef, file);
+    const downloadURL = await getDownloadURL(snapshot.ref);
+    return downloadURL;
+  } catch (error) {
+    console.error("Error uploading image:", error);
+    throw error;
+  }
+};
+
+// Upload logo tim
+export const uploadTeamLogo = async (teamId: string, file: File): Promise<string> => {
+  const path = `team-logos/${teamId}`;
+  return uploadImage(file, path);
+};
+
+// Upload foto pemain
+export const uploadPlayerPhoto = async (teamId: string, playerId: string, file: File): Promise<string> => {
+  const path = `player-photos/${teamId}/${playerId}`;
+  return uploadImage(file, path);
 };
