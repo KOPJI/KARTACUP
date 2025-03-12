@@ -1,6 +1,6 @@
 import React, { ReactNode, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Award, Calendar, Home, List, Menu, Trophy, Users, X } from 'lucide-react';
+import { Award, Calendar, Home, List, Menu, Trophy, Users, X, AlertTriangle } from 'lucide-react';
 
 interface LayoutProps {
   children: ReactNode;
@@ -82,6 +82,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   <span>Pencetak Gol</span>
                 </Link>
               </li>
+              <li>
+                <Link to="/kartu-larangan" className={`nav-item ${isActive('/kartu-larangan')}`}>
+                  <AlertTriangle size={18} />
+                  <span>Kartu & Larangan</span>
+                </Link>
+              </li>
             </ul>
           </nav>
         </div>
@@ -149,6 +155,16 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <span>Pencetak Gol</span>
               </Link>
             </li>
+            <li>
+              <Link 
+                to="/kartu-larangan" 
+                className={`mobile-nav-item ${isActive('/kartu-larangan')}`}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <AlertTriangle size={18} />
+                <span>Kartu & Larangan</span>
+              </Link>
+            </li>
           </ul>
         </nav>
       </header>
@@ -203,6 +219,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <>
                 <Award size={24} className="text-teal-600" />
                 <span>Daftar Pencetak Gol</span>
+              </>
+            )}
+            {location.pathname === '/kartu-larangan' && (
+              <>
+                <AlertTriangle size={24} className="text-teal-600" />
+                <span>Kartu & Larangan Bermain</span>
               </>
             )}
           </h1>

@@ -9,6 +9,7 @@ import Klasemen from './pages/Klasemen';
 import HasilPertandingan from './pages/HasilPertandingan';
 import DetailPertandingan from './pages/DetailPertandingan';
 import PencetakGol from './pages/PencetakGol';
+import KartuLarangan from './pages/KartuLarangan';
 import { initializeData } from './utils/dataInitializer';
 import './index.css';
 
@@ -39,6 +40,7 @@ function App() {
         <Route path="/hasil" element={<HasilPertandingan />} />
         <Route path="/pertandingan/:id" element={<DetailPertandingan />} />
         <Route path="/pencetak-gol" element={<PencetakGol />} />
+        <Route path="/kartu-larangan" element={<KartuLarangan />} />
       </Routes>
     </Layout>
   );
