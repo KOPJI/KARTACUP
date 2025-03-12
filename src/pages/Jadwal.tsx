@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Match, Team } from '../types';
-import { ArrowRight, Calendar, Clock, Info, RotateCw, Square, Trash } from 'lucide-react';
+import { ArrowRight, Calendar, Clock, Info, RotateCw, Square, Trash, Database } from 'lucide-react';
 import { generateSchedule } from '../utils/dataInitializer';
-import { getMatches, getTeams, deleteMatch, formatDateToIndonesian, saveMatch, deleteAllMatches } from '../utils/firebase';
+import { getMatches, getTeams, deleteMatch, formatDateToIndonesian, saveMatch, deleteAllMatches, initializeTeamsData, initializePlayersData } from '../utils/firebase';
 
 const Jadwal: React.FC = () => {
   const [matches, setMatches] = useState<Match[]>([]);
@@ -17,6 +17,7 @@ const Jadwal: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState<boolean>(false);
   const [generatingSchedule, setGeneratingSchedule] = useState<boolean>(false);
+  const [initializingData, setInitializingData] = useState<boolean>(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -40,6 +41,33 @@ const Jadwal: React.FC = () => {
     
     fetchData();
   }, []);
+
+  const handleInitializeData = async () => {
+    if (!confirm('Inisialisasi data tim akan menghapus semua data tim yang ada dan membuat data baru. Lanjutkan?')) {
+      return;
+    }
+    
+    try {
+      setInitializingData(true);
+      
+      // Inisialisasi data tim
+      await initializeTeamsData();
+      
+      // Inisialisasi data pemain
+      await initializePlayersData();
+      
+      // Reload data
+      const teamsData = await getTeams();
+      setTeams(teamsData);
+      
+      alert("Data tim berhasil diinisialisasi. Sekarang Anda dapat membuat jadwal pertandingan.");
+    } catch (error) {
+      console.error("Error initializing data:", error);
+      alert("Gagal menginisialisasi data: " + (error instanceof Error ? error.message : "Error tidak diketahui"));
+    } finally {
+      setInitializingData(false);
+    }
+  };
 
   const handleGenerateSchedule = async () => {
     if (matches.length > 0) {
@@ -225,6 +253,23 @@ const Jadwal: React.FC = () => {
             onClick={() => setShowInfoModal(true)}
           >
             <Info size={20} />
+          </button>
+          <button 
+            className={`btn btn-primary inline-flex items-center gap-2 ${initializingData ? 'opacity-70 cursor-not-allowed' : ''}`}
+            onClick={handleInitializeData}
+            disabled={initializingData}
+          >
+            {initializingData ? (
+              <>
+                <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                <span>Inisialisasi Data...</span>
+              </>
+            ) : (
+              <>
+                <Database size={18} />
+                <span>Inisialisasi Data</span>
+              </>
+            )}
           </button>
           <button 
             className={`btn btn-primary inline-flex items-center gap-2 ${generatingSchedule ? 'opacity-70 cursor-not-allowed' : ''}`}
