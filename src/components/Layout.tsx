@@ -1,6 +1,6 @@
 import React, { ReactNode, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Award, Calendar, House, List, Menu, Trophy, Users, X } from 'lucide-react';
+import { Award, Calendar, Home, List, Menu, Trophy, Users, X } from 'lucide-react';
 
 interface LayoutProps {
   children: ReactNode;
@@ -48,7 +48,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <ul className="flex space-x-1">
               <li>
                 <Link to="/" className={`nav-item ${isActive('/')}`}>
-                  <House size={18} />
+                  <Home size={18} />
                   <span>Beranda</span>
                 </Link>
               </li>
@@ -95,7 +95,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 className={`mobile-nav-item ${isActive('/')}`}
                 onClick={() => setMobileMenuOpen(false)}
               >
-                <House size={18} />
+                <Home size={18} />
                 <span>Beranda</span>
               </Link>
             </li>
@@ -159,7 +159,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           <h1 className="text-2xl font-bold text-teal-800 flex items-center gap-2">
             {location.pathname === '/' && (
               <>
-                <House size={24} className="text-teal-600" />
+                <Home size={24} className="text-teal-600" />
                 <span>Beranda</span>
               </>
             )}
