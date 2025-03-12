@@ -2,30 +2,43 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Award, Calendar, ChevronRight, Trophy, Users } from 'lucide-react';
 import { Match, Team } from '../types';
+import { getTeams, getMatches } from '../utils/firebase';
 
 const Beranda: React.FC = () => {
   const [teams, setTeams] = useState<Team[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [topScorers, setTopScorers] = useState<{ name: string; team: string; goals: number }[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    // Load data
-    const teamsData = JSON.parse(localStorage.getItem('teams') || '[]');
-    const matchesData = JSON.parse(localStorage.getItem('matches') || '[]');
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        // Load data from Firestore
+        const teamsData = await getTeams();
+        const matchesData = await getMatches();
+        
+        setTeams(teamsData);
+        setMatches(matchesData);
+        
+        // Calculate top scorers (simplified version for home page)
+        const players = teamsData.flatMap(team => 
+          (team.players || []).map(player => ({
+            name: player.name,
+            team: team.name,
+            goals: player.goals
+          }))
+        ).sort((a, b) => b.goals - a.goals).slice(0, 5);
+        
+        setTopScorers(players);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
     
-    setTeams(teamsData);
-    setMatches(matchesData);
-    
-    // Calculate top scorers (simplified version for home page)
-    const players = teamsData.flatMap(team => 
-      team.players.map(player => ({
-        name: player.name,
-        team: team.name,
-        goals: player.goals
-      }))
-    ).sort((a, b) => b.goals - a.goals).slice(0, 5);
-    
-    setTopScorers(players);
+    fetchData();
   }, []);
 
   const upcomingMatches = matches
@@ -37,6 +50,14 @@ const Beranda: React.FC = () => {
     const team = teams.find(t => t.id === id);
     return team ? team.name : 'Tim Tidak Ditemukan';
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-700"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">

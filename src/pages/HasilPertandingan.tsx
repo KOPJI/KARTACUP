@@ -2,18 +2,32 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Match, Team } from '../types';
 import { Calendar, CheckCircle, Clock } from 'lucide-react';
+import { getTeams, getMatches } from '../utils/firebase';
 
 const HasilPertandingan: React.FC = () => {
   const [matches, setMatches] = useState<Match[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [activeTab, setActiveTab] = useState<'completed' | 'scheduled'>('scheduled');
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    const teamsData = JSON.parse(localStorage.getItem('teams') || '[]');
-    const matchesData = JSON.parse(localStorage.getItem('matches') || '[]');
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        // Load data from Firestore
+        const teamsData = await getTeams();
+        const matchesData = await getMatches();
+        
+        setTeams(teamsData);
+        setMatches(matchesData);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
     
-    setTeams(teamsData);
-    setMatches(matchesData);
+    fetchData();
   }, []);
 
   const getTeamName = (id: string) => {
@@ -26,6 +40,14 @@ const HasilPertandingan: React.FC = () => {
   
   const scheduledMatches = matches.filter(match => match.status === 'scheduled' && match.date)
     .sort((a, b) => new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime());
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-700"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
