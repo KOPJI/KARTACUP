@@ -89,11 +89,11 @@ const Jadwal: React.FC = () => {
       }
       
       // Generate jadwal baru dengan tanggal mulai yang ditentukan
-      const newMatches = generateSchedule(startDate, freshTeamsData);
+      const newMatches = await generateSchedule(startDate, freshTeamsData);
       
       if (newMatches && newMatches.length > 0) {
         // Update venue name for all matches
-        const updatedMatches = newMatches.map(match => ({
+        const updatedMatches = newMatches.map((match: Match) => ({
           ...match,
           venue: "Lapangan Gelora Babakan Girihieum"
         }));
