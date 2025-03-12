@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Match, Team, Player, GoalScorer, Card } from '../types';
 import { Calendar, Clock, Save, Trash2, Trophy, User } from 'lucide-react';
-import { updateMatch } from '../utils/dataInitializer';
+import { getMatchById, getTeamById, saveMatch, saveTeam } from '../utils/firebase';
 
 const DetailPertandingan: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -21,37 +21,52 @@ const DetailPertandingan: React.FC = () => {
   const [cardForm, setCardForm] = useState({
     teamId: '',
     playerId: '',
-    type: 'yellow',
+    type: 'yellow' as 'yellow' | 'red',
     minute: 1
   });
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    if (!id) return;
-    
-    const matchesData = JSON.parse(localStorage.getItem('matches') || '[]') as Match[];
-    const foundMatch = matchesData.find(m => m.id === id);
-    
-    if (foundMatch) {
-      setMatch(foundMatch);
+    const fetchData = async () => {
+      if (!id) return;
       
-      if (foundMatch.homeScore !== null) {
-        setHomeScore(foundMatch.homeScore);
+      try {
+        setIsLoading(true);
+        
+        // Get match data from Firestore
+        const foundMatch = await getMatchById(id);
+        
+        if (foundMatch) {
+          setMatch(foundMatch);
+          
+          if (foundMatch.homeScore !== null) {
+            setHomeScore(foundMatch.homeScore);
+          }
+          
+          if (foundMatch.awayScore !== null) {
+            setAwayScore(foundMatch.awayScore);
+          }
+          
+          // Load teams from Firestore
+          const homeTeamData = await getTeamById(foundMatch.homeTeamId);
+          const awayTeamData = await getTeamById(foundMatch.awayTeamId);
+          
+          setHomeTeam(homeTeamData || null);
+          setAwayTeam(awayTeamData || null);
+        } else {
+          navigate('/jadwal');
+        }
+      } catch (error) {
+        console.error("Error fetching match data:", error);
+      } finally {
+        setIsLoading(false);
       }
-      
-      if (foundMatch.awayScore !== null) {
-        setAwayScore(foundMatch.awayScore);
-      }
-      
-      // Load teams
-      const teamsData = JSON.parse(localStorage.getItem('teams') || '[]') as Team[];
-      setHomeTeam(teamsData.find(t => t.id === foundMatch.homeTeamId) || null);
-      setAwayTeam(teamsData.find(t => t.id === foundMatch.awayTeamId) || null);
-    } else {
-      navigate('/jadwal');
-    }
+    };
+    
+    fetchData();
   }, [id, navigate]);
 
-  const handleSaveScore = () => {
+  const handleSaveScore = async () => {
     if (!match) return;
     
     const updatedMatch: Match = {
@@ -61,16 +76,26 @@ const DetailPertandingan: React.FC = () => {
       status: 'completed'
     };
     
-    setMatch(updatedMatch);
-    updateMatch(updatedMatch);
-    
-    alert('Hasil pertandingan berhasil disimpan!');
+    try {
+      // Save to Firestore
+      await saveMatch(updatedMatch);
+      
+      // Update local state
+      setMatch(updatedMatch);
+      
+      alert('Skor berhasil disimpan');
+      
+      // Update team statistics
+      await updateTeamStats(updatedMatch);
+    } catch (error) {
+      console.error("Error saving score:", error);
+      alert('Gagal menyimpan skor');
+    }
   };
 
-  const handleAddGoal = () => {
-    if (!match) return;
-    if (!goalForm.teamId || !goalForm.playerId) {
-      alert('Pilih tim dan pemain yang mencetak gol');
+  const handleAddGoal = async () => {
+    if (!match || !goalForm.teamId || !goalForm.playerId) {
+      alert('Pilih tim dan pemain');
       return;
     }
     
@@ -87,117 +112,93 @@ const DetailPertandingan: React.FC = () => {
       scorers: [...match.scorers, newGoal]
     };
     
-    setMatch(updatedMatch);
-    updateMatch(updatedMatch);
-    
-    // Update player stats
-    const teamsData = JSON.parse(localStorage.getItem('teams') || '[]') as Team[];
-    const updatedTeams = teamsData.map(team => {
-      if (team.id === goalForm.teamId) {
-        return {
-          ...team,
-          players: team.players.map(player => {
-            if (player.id === goalForm.playerId) {
-              return {
-                ...player,
-                goals: player.goals + 1
-              };
-            }
-            return player;
-          })
-        };
+    try {
+      // Update match in Firestore
+      await saveMatch(updatedMatch);
+      
+      // Update local state
+      setMatch(updatedMatch);
+      
+      // Update player stats
+      if (goalForm.teamId === match.homeTeamId && homeTeam) {
+        const updatedHomeTeam = updatePlayerGoals(homeTeam, goalForm.playerId);
+        setHomeTeam(updatedHomeTeam);
+        await saveTeam(updatedHomeTeam);
+      } else if (goalForm.teamId === match.awayTeamId && awayTeam) {
+        const updatedAwayTeam = updatePlayerGoals(awayTeam, goalForm.playerId);
+        setAwayTeam(updatedAwayTeam);
+        await saveTeam(updatedAwayTeam);
       }
-      return team;
-    });
-    
-    localStorage.setItem('teams', JSON.stringify(updatedTeams));
-    
-    // Reset form
-    setGoalForm({
-      teamId: '',
-      playerId: '',
-      minute: 1
-    });
-    
-    alert('Gol berhasil ditambahkan!');
+      
+      // Reset form
+      setGoalForm({
+        teamId: '',
+        playerId: '',
+        minute: 1
+      });
+    } catch (error) {
+      console.error("Error adding goal:", error);
+      alert('Gagal menambahkan gol');
+    }
   };
 
-  const handleAddCard = () => {
-    if (!match) return;
-    if (!cardForm.teamId || !cardForm.playerId) {
-      alert('Pilih tim dan pemain yang mendapat kartu');
+  const handleAddCard = async () => {
+    if (!match || !cardForm.teamId || !cardForm.playerId) {
+      alert('Pilih tim dan pemain');
       return;
     }
     
     const newCard: Card = {
       id: Date.now().toString(),
-      matchId: match.id,
       teamId: cardForm.teamId,
       playerId: cardForm.playerId,
-      type: cardForm.type as 'yellow' | 'red',
+      type: cardForm.type,
       minute: cardForm.minute
     };
     
     const updatedMatch: Match = {
       ...match,
-      cards: [...match.cards, newCard]
+      cards: [...(match.cards || []), newCard]
     };
     
-    setMatch(updatedMatch);
-    updateMatch(updatedMatch);
-    
-    // Update player stats
-    const teamsData = JSON.parse(localStorage.getItem('teams') || '[]') as Team[];
-    const updatedTeams = teamsData.map(team => {
-      if (team.id === cardForm.teamId) {
-        return {
-          ...team,
-          players: team.players.map(player => {
-            if (player.id === cardForm.playerId) {
-              const updatedPlayer = {
-                ...player,
-                yellowCards: cardForm.type === 'yellow' ? player.yellowCards + 1 : player.yellowCards,
-                redCards: cardForm.type === 'red' ? player.redCards + 1 : player.redCards
-              };
-              
-              // Check for ban (2 yellow cards or 1 red card)
-              if (
-                (cardForm.type === 'yellow' && updatedPlayer.yellowCards >= 2) || 
-                (cardForm.type === 'red') ||
-                updatedPlayer.redCards > 0
-              ) {
-                updatedPlayer.isBanned = true;
-              }
-              
-              return updatedPlayer;
-            }
-            return player;
-          })
-        };
+    try {
+      // Update match in Firestore
+      await saveMatch(updatedMatch);
+      
+      // Update local state
+      setMatch(updatedMatch);
+      
+      // Update player stats
+      if (cardForm.teamId === match.homeTeamId && homeTeam) {
+        const updatedHomeTeam = updatePlayerCards(homeTeam, cardForm.playerId, cardForm.type);
+        setHomeTeam(updatedHomeTeam);
+        await saveTeam(updatedHomeTeam);
+      } else if (cardForm.teamId === match.awayTeamId && awayTeam) {
+        const updatedAwayTeam = updatePlayerCards(awayTeam, cardForm.playerId, cardForm.type);
+        setAwayTeam(updatedAwayTeam);
+        await saveTeam(updatedAwayTeam);
       }
-      return team;
-    });
-    
-    localStorage.setItem('teams', JSON.stringify(updatedTeams));
-    
-    // Reset form
-    setCardForm({
-      teamId: '',
-      playerId: '',
-      type: 'yellow',
-      minute: 1
-    });
-    
-    alert('Kartu berhasil ditambahkan!');
+      
+      // Reset form
+      setCardForm({
+        teamId: '',
+        playerId: '',
+        type: 'yellow',
+        minute: 1
+      });
+    } catch (error) {
+      console.error("Error adding card:", error);
+      alert('Gagal menambahkan kartu');
+    }
   };
 
   const getPlayerName = (teamId: string, playerId: string): string => {
-    const team = teamId === homeTeam?.id ? homeTeam : awayTeam;
+    const team = teamId === match?.homeTeamId ? homeTeam : awayTeam;
     const player = team?.players.find(p => p.id === playerId);
     return player ? player.name : 'Pemain tidak ditemukan';
   };
 
-  const removeGoal = (goalId: string) => {
+  const removeGoal = async (goalId: string) => {
     if (!match) return;
     if (!confirm('Yakin ingin menghapus gol ini?')) return;
     
@@ -209,78 +210,213 @@ const DetailPertandingan: React.FC = () => {
       scorers: match.scorers.filter(g => g.id !== goalId)
     };
     
-    setMatch(updatedMatch);
-    updateMatch(updatedMatch);
-    
-    // Update player stats
-    const teamsData = JSON.parse(localStorage.getItem('teams') || '[]') as Team[];
-    const updatedTeams = teamsData.map(team => {
-      if (team.id === goalToRemove.teamId) {
-        return {
-          ...team,
-          players: team.players.map(player => {
-            if (player.id === goalToRemove.playerId) {
-              return {
-                ...player,
-                goals: Math.max(0, player.goals - 1)
-              };
-            }
-            return player;
-          })
-        };
+    try {
+      // Update match in Firestore
+      await saveMatch(updatedMatch);
+      
+      // Update local state
+      setMatch(updatedMatch);
+      
+      // Update player stats
+      if (goalToRemove.teamId === match.homeTeamId && homeTeam) {
+        const updatedHomeTeam = decrementPlayerGoals(homeTeam, goalToRemove.playerId);
+        setHomeTeam(updatedHomeTeam);
+        await saveTeam(updatedHomeTeam);
+      } else if (goalToRemove.teamId === match.awayTeamId && awayTeam) {
+        const updatedAwayTeam = decrementPlayerGoals(awayTeam, goalToRemove.playerId);
+        setAwayTeam(updatedAwayTeam);
+        await saveTeam(updatedAwayTeam);
       }
-      return team;
-    });
-    
-    localStorage.setItem('teams', JSON.stringify(updatedTeams));
+    } catch (error) {
+      console.error("Error removing goal:", error);
+      alert('Gagal menghapus gol');
+    }
   };
 
-  const removeCard = (cardId: string) => {
+  const removeCard = async (cardId: string) => {
     if (!match) return;
     if (!confirm('Yakin ingin menghapus kartu ini?')) return;
     
-    const cardToRemove = match.cards.find(c => c.id === cardId);
+    const cardToRemove = match.cards?.find(c => c.id === cardId);
     if (!cardToRemove) return;
     
     const updatedMatch: Match = {
       ...match,
-      cards: match.cards.filter(c => c.id !== cardId)
+      cards: match.cards?.filter(c => c.id !== cardId) || []
     };
     
-    setMatch(updatedMatch);
-    updateMatch(updatedMatch);
-    
-    // Update player stats
-    const teamsData = JSON.parse(localStorage.getItem('teams') || '[]') as Team[];
-    const updatedTeams = teamsData.map(team => {
-      if (team.id === cardToRemove.teamId) {
-        return {
-          ...team,
-          players: team.players.map(player => {
-            if (player.id === cardToRemove.playerId) {
-              const updatedPlayer = {
-                ...player,
-                yellowCards: cardToRemove.type === 'yellow' ? Math.max(0, player.yellowCards - 1) : player.yellowCards,
-                redCards: cardToRemove.type === 'red' ? Math.max(0, player.redCards - 1) : player.redCards
-              };
-              
-              // Recalculate ban status
-              updatedPlayer.isBanned = updatedPlayer.yellowCards >= 2 || updatedPlayer.redCards > 0;
-              
-              return updatedPlayer;
-            }
-            return player;
-          })
-        };
+    try {
+      // Update match in Firestore
+      await saveMatch(updatedMatch);
+      
+      // Update local state
+      setMatch(updatedMatch);
+      
+      // Update player stats
+      if (cardToRemove.teamId === match.homeTeamId && homeTeam) {
+        const updatedHomeTeam = decrementPlayerCards(homeTeam, cardToRemove.playerId, cardToRemove.type);
+        setHomeTeam(updatedHomeTeam);
+        await saveTeam(updatedHomeTeam);
+      } else if (cardToRemove.teamId === match.awayTeamId && awayTeam) {
+        const updatedAwayTeam = decrementPlayerCards(awayTeam, cardToRemove.playerId, cardToRemove.type);
+        setAwayTeam(updatedAwayTeam);
+        await saveTeam(updatedAwayTeam);
       }
-      return team;
-    });
-    
-    localStorage.setItem('teams', JSON.stringify(updatedTeams));
+    } catch (error) {
+      console.error("Error removing card:", error);
+      alert('Gagal menghapus kartu');
+    }
   };
 
+  // Helper functions
+  const updatePlayerGoals = (team: Team, playerId: string): Team => {
+    const updatedPlayers = team.players.map(player => {
+      if (player.id === playerId) {
+        return {
+          ...player,
+          goals: (player.goals || 0) + 1
+        };
+      }
+      return player;
+    });
+    
+    return {
+      ...team,
+      players: updatedPlayers
+    };
+  };
+
+  const decrementPlayerGoals = (team: Team, playerId: string): Team => {
+    const updatedPlayers = team.players.map(player => {
+      if (player.id === playerId) {
+        return {
+          ...player,
+          goals: Math.max(0, (player.goals || 0) - 1)
+        };
+      }
+      return player;
+    });
+    
+    return {
+      ...team,
+      players: updatedPlayers
+    };
+  };
+
+  const updatePlayerCards = (team: Team, playerId: string, cardType: string): Team => {
+    const updatedPlayers = team.players.map(player => {
+      if (player.id === playerId) {
+        if (cardType === 'yellow') {
+          const yellowCards = (player.yellowCards || 0) + 1;
+          return {
+            ...player,
+            yellowCards,
+            isBanned: yellowCards >= 2 || (player.redCards || 0) > 0
+          };
+        } else {
+          const redCards = (player.redCards || 0) + 1;
+          return {
+            ...player,
+            redCards,
+            isBanned: true
+          };
+        }
+      }
+      return player;
+    });
+    
+    return {
+      ...team,
+      players: updatedPlayers
+    };
+  };
+
+  const decrementPlayerCards = (team: Team, playerId: string, cardType: string): Team => {
+    const updatedPlayers = team.players.map(player => {
+      if (player.id === playerId) {
+        if (cardType === 'yellow') {
+          const yellowCards = Math.max(0, (player.yellowCards || 0) - 1);
+          return {
+            ...player,
+            yellowCards,
+            isBanned: yellowCards >= 2 || (player.redCards || 0) > 0
+          };
+        } else {
+          const redCards = Math.max(0, (player.redCards || 0) - 1);
+          return {
+            ...player,
+            redCards,
+            isBanned: redCards > 0
+          };
+        }
+      }
+      return player;
+    });
+    
+    return {
+      ...team,
+      players: updatedPlayers
+    };
+  };
+
+  const updateTeamStats = async (match: Match) => {
+    if (!homeTeam || !awayTeam || match.homeScore === null || match.awayScore === null) return;
+    
+    // Update home team stats
+    let updatedHomeTeam = { ...homeTeam };
+    updatedHomeTeam.played = (updatedHomeTeam.played || 0) + 1;
+    updatedHomeTeam.goalsFor = (updatedHomeTeam.goalsFor || 0) + match.homeScore;
+    updatedHomeTeam.goalsAgainst = (updatedHomeTeam.goalsAgainst || 0) + match.awayScore;
+    
+    // Update away team stats
+    let updatedAwayTeam = { ...awayTeam };
+    updatedAwayTeam.played = (updatedAwayTeam.played || 0) + 1;
+    updatedAwayTeam.goalsFor = (updatedAwayTeam.goalsFor || 0) + match.awayScore;
+    updatedAwayTeam.goalsAgainst = (updatedAwayTeam.goalsAgainst || 0) + match.homeScore;
+    
+    // Update win/draw/loss and points
+    if (match.homeScore > match.awayScore) {
+      // Home team wins
+      updatedHomeTeam.won = (updatedHomeTeam.won || 0) + 1;
+      updatedHomeTeam.points = (updatedHomeTeam.points || 0) + 3;
+      updatedAwayTeam.lost = (updatedAwayTeam.lost || 0) + 1;
+    } else if (match.homeScore < match.awayScore) {
+      // Away team wins
+      updatedAwayTeam.won = (updatedAwayTeam.won || 0) + 1;
+      updatedAwayTeam.points = (updatedAwayTeam.points || 0) + 3;
+      updatedHomeTeam.lost = (updatedHomeTeam.lost || 0) + 1;
+    } else {
+      // Draw
+      updatedHomeTeam.drawn = (updatedHomeTeam.drawn || 0) + 1;
+      updatedHomeTeam.points = (updatedHomeTeam.points || 0) + 1;
+      updatedAwayTeam.drawn = (updatedAwayTeam.drawn || 0) + 1;
+      updatedAwayTeam.points = (updatedAwayTeam.points || 0) + 1;
+    }
+    
+    try {
+      // Save updated teams to Firestore
+      await saveTeam(updatedHomeTeam);
+      await saveTeam(updatedAwayTeam);
+      
+      // Update local state
+      setHomeTeam(updatedHomeTeam);
+      setAwayTeam(updatedAwayTeam);
+    } catch (error) {
+      console.error("Error updating team stats:", error);
+      alert('Gagal memperbarui statistik tim');
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-700"></div>
+      </div>
+    );
+  }
+
   if (!match || !homeTeam || !awayTeam) {
-    return <div className="text-center py-8">Loading...</div>;
+    return <div className="text-center py-8">Pertandingan tidak ditemukan</div>;
   }
 
   return (
@@ -367,7 +503,7 @@ const DetailPertandingan: React.FC = () => {
           <div className="space-y-4">
             <div>
               <h3 className="font-semibold mb-2">Pencetak Gol</h3>
-              {match.scorers.length > 0 ? (
+              {match.scorers?.length > 0 ? (
                 <div className="space-y-2">
                   {match.scorers.map(scorer => (
                     <div key={scorer.id} className="flex items-center gap-2">
@@ -388,7 +524,7 @@ const DetailPertandingan: React.FC = () => {
             
             <div>
               <h3 className="font-semibold mb-2">Kartu</h3>
-              {match.cards.length > 0 ? (
+              {match.cards?.length > 0 ? (
                 <div className="space-y-2">
                   {match.cards.map(card => (
                     <div key={card.id} className="flex items-center gap-2">
@@ -474,7 +610,7 @@ const DetailPertandingan: React.FC = () => {
             </div>
             
             <h3 className="font-semibold mt-4 mb-2">Daftar Pencetak Gol</h3>
-            {match.scorers.length > 0 ? (
+            {match.scorers?.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
@@ -557,7 +693,7 @@ const DetailPertandingan: React.FC = () => {
                   <select
                     className="input"
                     value={cardForm.type}
-                    onChange={(e) => setCardForm({ ...cardForm, type: e.target.value })}
+                    onChange={(e) => setCardForm({ ...cardForm, type: e.target.value as 'yellow' | 'red' })}
                   >
                     <option value="yellow">Kartu Kuning</option>
                     <option value="red">Kartu Merah</option>
@@ -588,7 +724,7 @@ const DetailPertandingan: React.FC = () => {
             </div>
             
             <h3 className="font-semibold mt-4 mb-2">Daftar Kartu</h3>
-            {match.cards.length > 0 ? (
+            {match.cards?.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
