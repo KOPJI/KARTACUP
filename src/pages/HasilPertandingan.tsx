@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Match, Team } from '../types';
-import { Calendar, CircleCheck, Clock } from 'lucide-react';
+import { Calendar, CheckCircle, Clock } from 'lucide-react';
 
 const HasilPertandingan: React.FC = () => {
   const [matches, setMatches] = useState<Match[]>([]);
@@ -102,7 +102,7 @@ const HasilPertandingan: React.FC = () => {
                   <div className="flex items-center justify-between mb-3">
                     <div className="badge badge-primary">Grup {match.group}</div>
                     <div className="flex items-center gap-1 text-sm text-green-600">
-                      <CircleCheck size={14} />
+                      <CheckCircle size={14} />
                       <span>Selesai</span>
                     </div>
                   </div>
@@ -134,7 +134,7 @@ const HasilPertandingan: React.FC = () => {
             </div>
           ) : (
             <div className="text-center py-12 text-slate-500">
-              <CircleCheck size={48} className="mx-auto mb-3 text-slate-300" />
+              <CheckCircle size={48} className="mx-auto mb-3 text-slate-300" />
               <p>Belum ada hasil pertandingan</p>
             </div>
           )}
