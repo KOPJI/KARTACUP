@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Team, Player, Match } from '../types';
 import { Calendar, Save, Trash2, UserPlus, Users, X, Shield, AlertTriangle, AlertCircle, Ban } from 'lucide-react';
-import { getTeamById, getMatches, saveTeam } from '../utils/firebase';
+import { getTeamById, getMatches, saveTeam, getTeams } from '../utils/firebase';
 
 interface PlayerFormData {
   name: string;
@@ -17,6 +17,7 @@ const DetailTim: React.FC = () => {
   const navigate = useNavigate();
   const [team, setTeam] = useState<Team | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
+  const [allTeams, setAllTeams] = useState<Team[]>([]);
   const [isAddingPlayer, setIsAddingPlayer] = useState(false);
   const [activeTab, setActiveTab] = useState<ActiveTab>('info');
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -32,6 +33,10 @@ const DetailTim: React.FC = () => {
       
       try {
         setIsLoading(true);
+        
+        // Get all teams for reference
+        const teamsData = await getTeams();
+        setAllTeams(teamsData);
         
         // Get team data from Firestore
         const foundTeam = await getTeamById(id);
@@ -201,10 +206,9 @@ const DetailTim: React.FC = () => {
     }
   };
 
-  const getTeamName = (id: string) => {
-    const teams = JSON.parse(localStorage.getItem('teams') || '[]') as Team[];
-    const team = teams.find(t => t.id === id);
-    return team ? team.name : 'Tim tidak ditemukan';
+  const getTeamName = (teamId: string) => {
+    const foundTeam = allTeams.find(t => t.id === teamId);
+    return foundTeam ? foundTeam.name : 'Tim tidak ditemukan';
   };
 
   if (isLoading) {
