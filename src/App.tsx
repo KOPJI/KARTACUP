@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import { useEffect } from 'react';
 import Layout from './components/Layout';
 import Beranda from './pages/Beranda';
@@ -29,20 +29,18 @@ function App() {
   }, []);
 
   return (
-    <Router>
-      <Layout>
-        <Routes>
-          <Route path="/" element={<Beranda />} />
-          <Route path="/tim" element={<DaftarTim />} />
-          <Route path="/tim/:id" element={<DetailTim />} />
-          <Route path="/jadwal" element={<Jadwal />} />
-          <Route path="/klasemen" element={<Klasemen />} />
-          <Route path="/hasil" element={<HasilPertandingan />} />
-          <Route path="/pertandingan/:id" element={<DetailPertandingan />} />
-          <Route path="/pencetak-gol" element={<PencetakGol />} />
-        </Routes>
-      </Layout>
-    </Router>
+    <Layout>
+      <Routes>
+        <Route path="/" element={<Beranda />} />
+        <Route path="/tim" element={<DaftarTim />} />
+        <Route path="/tim/:id" element={<DetailTim />} />
+        <Route path="/jadwal" element={<Jadwal />} />
+        <Route path="/klasemen" element={<Klasemen />} />
+        <Route path="/hasil" element={<HasilPertandingan />} />
+        <Route path="/pertandingan/:id" element={<DetailPertandingan />} />
+        <Route path="/pencetak-gol" element={<PencetakGol />} />
+      </Routes>
+    </Layout>
   );
 }
 
