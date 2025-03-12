@@ -23,6 +23,8 @@ export interface Player {
   yellowCards: number;
   redCards: number;
   isBanned: boolean;
+  banReason?: string;
+  banDate?: string;
   photoUrl?: string;
 }
 

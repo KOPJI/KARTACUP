@@ -19,6 +19,20 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const storage = getStorage(app);
 
+// Konfigurasi CORS untuk Storage
+const corsHeaders = {
+  'Access-Control-Allow-Origin': 'https://kartacupv.vercel.app',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+};
+
+// Konstanta untuk validasi dan kompresi gambar
+const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/jpg'];
+const MAX_IMAGE_WIDTH = 800; // Maksimal lebar gambar
+const MAX_IMAGE_HEIGHT = 800; // Maksimal tinggi gambar
+const COMPRESSION_QUALITY = 0.7; // Kualitas kompresi (0-1)
+
 // Format tanggal ke dd/mm/yyyy
 export const formatDateToIndonesian = (dateString: string): string => {
   if (!dateString) return '';
@@ -515,27 +529,271 @@ export const initializePlayersData = async (): Promise<void> => {
   }
 };
 
-// Upload gambar ke Firebase Storage
-export const uploadImage = async (file: File, path: string): Promise<string> => {
-  try {
-    const storageRef = ref(storage, path);
-    const snapshot = await uploadBytes(storageRef, file);
-    const downloadURL = await getDownloadURL(snapshot.ref);
-    return downloadURL;
-  } catch (error) {
-    console.error("Error uploading image:", error);
-    throw error;
+// Fungsi untuk validasi file
+const validateImageFile = (file: File) => {
+  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+    throw new Error('Tipe file tidak didukung. Gunakan file JPG atau PNG.');
   }
+  
+  if (file.size > MAX_FILE_SIZE) {
+    throw new Error('Ukuran file terlalu besar. Maksimal 2MB.');
+  }
+};
+
+// Fungsi untuk mengkompresi gambar
+const compressImage = (file: File): Promise<Blob> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.src = URL.createObjectURL(file);
+    
+    img.onload = () => {
+      // Hitung dimensi yang proporsional
+      let width = img.width;
+      let height = img.height;
+      
+      if (width > height) {
+        if (width > MAX_IMAGE_WIDTH) {
+          height = Math.round((height * MAX_IMAGE_WIDTH) / width);
+          width = MAX_IMAGE_WIDTH;
+        }
+      } else {
+        if (height > MAX_IMAGE_HEIGHT) {
+          width = Math.round((width * MAX_IMAGE_HEIGHT) / height);
+          height = MAX_IMAGE_HEIGHT;
+        }
+      }
+      
+      // Buat canvas untuk kompresi
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      
+      // Gambar ke canvas
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error('Gagal membuat context canvas'));
+        return;
+      }
+      
+      ctx.drawImage(img, 0, 0, width, height);
+      
+      // Konversi ke blob dengan kompresi
+      canvas.toBlob(
+        (blob) => {
+          if (blob) {
+            resolve(blob);
+          } else {
+            reject(new Error('Gagal mengkompresi gambar'));
+          }
+        },
+        file.type,
+        COMPRESSION_QUALITY
+      );
+      
+      // Bersihkan URL object
+      URL.revokeObjectURL(img.src);
+    };
+    
+    img.onerror = () => {
+      reject(new Error('Gagal memuat gambar'));
+      URL.revokeObjectURL(img.src);
+    };
+  });
+};
+
+// Fungsi untuk mengkonversi Blob ke base64
+const convertBlobToBase64 = (blob: Blob): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(blob);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = (error) => reject(error);
+  });
 };
 
 // Upload logo tim
 export const uploadTeamLogo = async (teamId: string, file: File): Promise<string> => {
-  const path = `team-logos/${teamId}`;
-  return uploadImage(file, path);
+  try {
+    // Validasi file
+    validateImageFile(file);
+    
+    // Kompresi gambar
+    const compressedBlob = await compressImage(file);
+    
+    // Konversi ke base64
+    const base64Image = await convertBlobToBase64(compressedBlob);
+    
+    // Update tim dengan URL base64
+    const team = await getTeamById(teamId);
+    if (team) {
+      team.logoUrl = base64Image;
+      await saveTeam(team);
+    }
+    
+    return base64Image;
+  } catch (error) {
+    console.error("Error uploading team logo:", error);
+    throw error;
+  }
 };
 
 // Upload foto pemain
 export const uploadPlayerPhoto = async (teamId: string, playerId: string, file: File): Promise<string> => {
-  const path = `player-photos/${teamId}/${playerId}`;
-  return uploadImage(file, path);
+  try {
+    // Validasi file
+    validateImageFile(file);
+    
+    // Kompresi gambar
+    const compressedBlob = await compressImage(file);
+    
+    // Konversi ke base64
+    const base64Image = await convertBlobToBase64(compressedBlob);
+    
+    // Update pemain dengan URL base64
+    const team = await getTeamById(teamId);
+    if (team) {
+      const updatedPlayers = team.players.map(player => {
+        if (player.id === playerId) {
+          return { ...player, photoUrl: base64Image };
+        }
+        return player;
+      });
+      
+      team.players = updatedPlayers;
+      await saveTeam(team);
+    }
+    
+    return base64Image;
+  } catch (error) {
+    console.error("Error uploading player photo:", error);
+    throw error;
+  }
+};
+
+// Fungsi untuk mengupdate kartu pemain
+export const updatePlayerCard = async (
+  teamId: string,
+  playerId: string,
+  cardType: 'yellow' | 'red',
+  increment: number
+): Promise<void> => {
+  try {
+    const team = await getTeamById(teamId);
+    if (!team) throw new Error('Tim tidak ditemukan');
+
+    const updatedPlayers = team.players.map(player => {
+      if (player.id === playerId) {
+        const updatedPlayer = { ...player };
+        
+        if (cardType === 'yellow') {
+          updatedPlayer.yellowCards = Math.max(0, (player.yellowCards || 0) + increment);
+          // Jika kartu kuning mencapai 3, pemain dilarang bermain
+          if (updatedPlayer.yellowCards >= 3 && !player.isBanned) {
+            updatedPlayer.isBanned = true;
+            updatedPlayer.banReason = 'Akumulasi 3 Kartu Kuning';
+            updatedPlayer.banDate = new Date().toISOString();
+          }
+        } else {
+          updatedPlayer.redCards = Math.max(0, (player.redCards || 0) + increment);
+          // Jika ada kartu merah, pemain dilarang bermain
+          if (updatedPlayer.redCards > 0 && !player.isBanned) {
+            updatedPlayer.isBanned = true;
+            updatedPlayer.banReason = 'Kartu Merah Langsung';
+            updatedPlayer.banDate = new Date().toISOString();
+          }
+        }
+        
+        return updatedPlayer;
+      }
+      return player;
+    });
+
+    // Update tim dengan data pemain yang baru
+    await saveTeam({ ...team, players: updatedPlayers });
+    
+    // Simpan data kartu ke koleksi terpisah untuk tracking
+    const cardId = generateId();
+    await setDoc(doc(db, `cards_${cardType}`, cardId), {
+      id: cardId,
+      playerId,
+      teamId,
+      type: cardType,
+      date: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error("Error updating player card:", error);
+    throw error;
+  }
+};
+
+// Fungsi untuk mengaktifkan/melarang pemain bermain
+export const togglePlayerBan = async (
+  teamId: string,
+  playerId: string,
+  shouldBan: boolean,
+  reason?: string
+): Promise<void> => {
+  try {
+    const team = await getTeamById(teamId);
+    if (!team) throw new Error('Tim tidak ditemukan');
+
+    const updatedPlayers = team.players.map(player => {
+      if (player.id === playerId) {
+        return {
+          ...player,
+          isBanned: shouldBan,
+          banReason: shouldBan ? (reason || 'Keputusan Admin') : undefined,
+          banDate: shouldBan ? new Date().toISOString() : undefined
+        };
+      }
+      return player;
+    });
+
+    // Update tim dengan data pemain yang baru
+    await saveTeam({ ...team, players: updatedPlayers });
+
+    // Simpan riwayat larangan bermain
+    if (shouldBan) {
+      const banId = generateId();
+      await setDoc(doc(db, 'bans', banId), {
+        id: banId,
+        playerId,
+        teamId,
+        reason: reason || 'Keputusan Admin',
+        date: new Date().toISOString()
+      });
+    }
+
+  } catch (error) {
+    console.error("Error toggling player ban:", error);
+    throw error;
+  }
+};
+
+// Fungsi untuk mendapatkan statistik kartu dan larangan
+export const getCardStats = async (): Promise<{
+  yellowCards: number;
+  redCards: number;
+  bannedPlayers: number;
+}> => {
+  try {
+    const teams = await getTeams();
+    let yellowCards = 0;
+    let redCards = 0;
+    let bannedPlayers = 0;
+
+    teams.forEach(team => {
+      team.players.forEach(player => {
+        yellowCards += player.yellowCards || 0;
+        redCards += player.redCards || 0;
+        if (player.isBanned) bannedPlayers++;
+      });
+    });
+
+    return { yellowCards, redCards, bannedPlayers };
+  } catch (error) {
+    console.error("Error getting card stats:", error);
+    return { yellowCards: 0, redCards: 0, bannedPlayers: 0 };
+  }
 };

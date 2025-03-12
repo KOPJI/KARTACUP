@@ -20,6 +20,11 @@ export default defineConfig({
   },
   server: {
     port: 3000,
-    host: true
+    host: true,
+    cors: {
+      origin: ['https://kartacupv.vercel.app', 'http://localhost:3000'],
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+    }
   },
 });
