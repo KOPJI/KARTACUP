@@ -772,6 +772,7 @@ export const togglePlayerBan = async (
 };
 
 // Fungsi untuk mendapatkan statistik kartu dan larangan
+// Digunakan di halaman KartuLarangan.tsx
 export const getCardStats = async (): Promise<CardStats> => {
   try {
     const teamsSnapshot = await getDocs(collection(db, 'teams'));
