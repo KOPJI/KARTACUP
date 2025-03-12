@@ -4,6 +4,12 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Team, Match, Player, GoalScorer, Card, Group } from "../types";
 import { generateId } from "./dataInitializer";
 
+interface CardStats {
+  yellowCards: number;
+  redCards: number;
+  bannedPlayers: number;
+}
+
 // Firebase configuration
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -772,28 +778,35 @@ export const togglePlayerBan = async (
 };
 
 // Fungsi untuk mendapatkan statistik kartu dan larangan
-export const getCardStats = async (): Promise<{
-  yellowCards: number;
-  redCards: number;
-  bannedPlayers: number;
-}> => {
+export const getCardStats = async (): Promise<CardStats> => {
   try {
-    const teams = await getTeams();
+    const teamsSnapshot = await getDocs(collection(db, 'teams'));
     let yellowCards = 0;
     let redCards = 0;
     let bannedPlayers = 0;
 
-    teams.forEach(team => {
-      team.players.forEach(player => {
-        yellowCards += player.yellowCards || 0;
-        redCards += player.redCards || 0;
-        if (player.isBanned) bannedPlayers++;
-      });
+    teamsSnapshot.forEach(doc => {
+      const team = doc.data();
+      if (team.players) {
+        team.players.forEach((player: any) => {
+          yellowCards += player.yellowCards || 0;
+          redCards += player.redCards || 0;
+          if (player.isBanned) bannedPlayers++;
+        });
+      }
     });
 
-    return { yellowCards, redCards, bannedPlayers };
+    return {
+      yellowCards,
+      redCards,
+      bannedPlayers
+    };
   } catch (error) {
     console.error("Error getting card stats:", error);
-    return { yellowCards: 0, redCards: 0, bannedPlayers: 0 };
+    return {
+      yellowCards: 0,
+      redCards: 0,
+      bannedPlayers: 0
+    };
   }
 };
