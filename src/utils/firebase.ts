@@ -383,19 +383,19 @@ export const initializeTeamsData = async (): Promise<void> => {
     const initialGroups: Group[] = [
       {
         name: 'A',
-        teams: ['REMAJA PUTRA A', 'PALAPA A', 'TOXNET A', 'PERU FC B', 'LEMKA B', 'PORBA JAYA A']
+        teams: []
       },
       {
         name: 'B',
-        teams: ['DL GUNS A', 'TOXNET B', 'PORBA JAYA B', 'PUTRA MANDIRI B', 'REMAJA PUTRA B', 'ARUMBA FC B']
+        teams: []
       },
       {
         name: 'C',
-        teams: ['GANESA A', 'REMAJA PUTRA C', 'PERU FC C', 'PERKID FC', 'PUTRA MANDIRI A', 'DL GUNS A']
+        teams: []
       },
       {
         name: 'D',
-        teams: ['LEMKA A', 'BALPAS FC', 'ARUMBA FC A', 'GANESA B', 'PERU FC A', 'PELANA FC']
+        teams: []
       }
     ];
     
