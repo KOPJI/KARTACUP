@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Team, Match } from '../types';
-import { CircleAlert, ArrowRight, Info, Trophy } from 'lucide-react';
+import { AlertCircle, ArrowRight, Info, Trophy } from 'lucide-react';
 import { getTeams, getMatches } from '../utils/firebase';
 
 // Type for head-to-head record
@@ -267,7 +267,7 @@ const Klasemen: React.FC = () => {
   if (error) {
     return (
       <div className="text-center py-12 bg-red-50 rounded-lg shadow-md text-red-600">
-        <CircleAlert size={64} className="mx-auto mb-3" />
+        <AlertCircle size={64} className="mx-auto mb-3" />
         <p className="text-lg font-medium">{error}</p>
       </div>
     );
