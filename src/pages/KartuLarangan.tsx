@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Team } from '../types';
-import { AlertTriangle, AlertCircle, Ban, Search } from 'lucide-react';
-import { getTeams } from '../utils/firebase';
+import { AlertTriangle, AlertCircle, Ban, Search, Plus, Minus, Check, X } from 'lucide-react';
+import { getTeams, updatePlayerCard, togglePlayerBan, getCardStats } from '../utils/firebase';
 
 interface BannedPlayer {
   id: string;
@@ -13,6 +13,14 @@ interface BannedPlayer {
   yellowCards: number;
   redCards: number;
   isBanned: boolean;
+  banReason?: string;
+  banDate?: string;
+}
+
+interface CardStats {
+  yellowCards: number;
+  redCards: number;
+  bannedPlayers: number;
 }
 
 const KartuLarangan: React.FC = () => {
@@ -21,12 +29,15 @@ const KartuLarangan: React.FC = () => {
   const [redCardPlayers, setRedCardPlayers] = useState<BannedPlayer[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [stats, setStats] = useState<CardStats>({ yellowCards: 0, redCards: 0, bannedPlayers: 0 });
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
         const teamsData = await getTeams();
+        const cardStats = await getCardStats();
+        setStats(cardStats);
         
         const allBannedPlayers: BannedPlayer[] = [];
         const allYellowCardPlayers: BannedPlayer[] = [];
@@ -43,7 +54,9 @@ const KartuLarangan: React.FC = () => {
               number: player.number,
               yellowCards: player.yellowCards || 0,
               redCards: player.redCards || 0,
-              isBanned: player.isBanned
+              isBanned: player.isBanned,
+              banReason: player.banReason,
+              banDate: player.banDate
             };
             
             if (player.isBanned) {
@@ -73,6 +86,28 @@ const KartuLarangan: React.FC = () => {
     fetchData();
   }, []);
 
+  const handleUpdateCard = async (player: BannedPlayer, cardType: 'yellow' | 'red', increment: number) => {
+    try {
+      await updatePlayerCard(player.teamId, player.id, cardType, increment);
+      // Refresh data
+      window.location.reload();
+    } catch (error) {
+      console.error("Error updating card:", error);
+      alert('Gagal mengupdate kartu pemain');
+    }
+  };
+
+  const handleToggleBan = async (player: BannedPlayer, shouldBan: boolean) => {
+    try {
+      await togglePlayerBan(player.teamId, player.id, shouldBan);
+      // Refresh data
+      window.location.reload();
+    } catch (error) {
+      console.error("Error toggling ban:", error);
+      alert('Gagal mengubah status larangan bermain');
+    }
+  };
+
   const filteredBannedPlayers = bannedPlayers.filter(player => 
     player.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     player.teamName.toLowerCase().includes(searchTerm.toLowerCase())
@@ -99,10 +134,15 @@ const KartuLarangan: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-        <h2 className="text-xl font-bold flex items-center gap-2">
-          <Ban size={20} />
-          <span>Kartu & Larangan Bermain</span>
-        </h2>
+        <div>
+          <h2 className="text-xl font-bold flex items-center gap-2">
+            <Ban size={20} />
+            <span>Kartu & Larangan Bermain</span>
+          </h2>
+          <div className="text-sm text-slate-500 mt-1">
+            Total: {stats.yellowCards} Kartu Kuning • {stats.redCards} Kartu Merah • {stats.bannedPlayers} Pemain Dilarang
+          </div>
+        </div>
         
         <div className="relative">
           <input
@@ -133,7 +173,9 @@ const KartuLarangan: React.FC = () => {
                   <th>Posisi</th>
                   <th>Kartu Kuning</th>
                   <th>Kartu Merah</th>
-                  <th>Status</th>
+                  <th>Alasan</th>
+                  <th>Tanggal</th>
+                  <th>Aksi</th>
                 </tr>
               </thead>
               <tbody>
@@ -145,8 +187,16 @@ const KartuLarangan: React.FC = () => {
                     <td>{player.position}</td>
                     <td>{player.yellowCards}</td>
                     <td>{player.redCards}</td>
+                    <td>{player.banReason}</td>
+                    <td>{player.banDate ? new Date(player.banDate).toLocaleDateString('id-ID') : '-'}</td>
                     <td>
-                      <span className="text-red-600 text-xs">Larangan Bermain</span>
+                      <button
+                        onClick={() => handleToggleBan(player, false)}
+                        className="btn btn-success btn-sm"
+                        title="Aktifkan Kembali"
+                      >
+                        <Check size={16} />
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -178,6 +228,7 @@ const KartuLarangan: React.FC = () => {
                   <th>Posisi</th>
                   <th>Kartu Kuning</th>
                   <th>Status</th>
+                  <th>Aksi</th>
                 </tr>
               </thead>
               <tbody>
@@ -193,6 +244,31 @@ const KartuLarangan: React.FC = () => {
                         <span className="text-red-600 text-xs">Larangan Bermain</span>
                       ) : (
                         <span className="text-amber-600 text-xs">Peringatan</span>
+                      )}
+                    </td>
+                    <td className="space-x-2">
+                      <button
+                        onClick={() => handleUpdateCard(player, 'yellow', 1)}
+                        className="btn btn-warning btn-sm"
+                        title="Tambah Kartu Kuning"
+                      >
+                        <Plus size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleUpdateCard(player, 'yellow', -1)}
+                        className="btn btn-warning btn-sm"
+                        title="Kurangi Kartu Kuning"
+                      >
+                        <Minus size={16} />
+                      </button>
+                      {!player.isBanned && (
+                        <button
+                          onClick={() => handleToggleBan(player, true)}
+                          className="btn btn-danger btn-sm"
+                          title="Larang Bermain"
+                        >
+                          <Ban size={16} />
+                        </button>
                       )}
                     </td>
                   </tr>
@@ -225,6 +301,7 @@ const KartuLarangan: React.FC = () => {
                   <th>Posisi</th>
                   <th>Kartu Merah</th>
                   <th>Status</th>
+                  <th>Aksi</th>
                 </tr>
               </thead>
               <tbody>
@@ -237,6 +314,22 @@ const KartuLarangan: React.FC = () => {
                     <td>{player.redCards}</td>
                     <td>
                       <span className="text-red-600 text-xs">Larangan Bermain</span>
+                    </td>
+                    <td className="space-x-2">
+                      <button
+                        onClick={() => handleUpdateCard(player, 'red', 1)}
+                        className="btn btn-danger btn-sm"
+                        title="Tambah Kartu Merah"
+                      >
+                        <Plus size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleUpdateCard(player, 'red', -1)}
+                        className="btn btn-danger btn-sm"
+                        title="Kurangi Kartu Merah"
+                      >
+                        <Minus size={16} />
+                      </button>
                     </td>
                   </tr>
                 ))}
