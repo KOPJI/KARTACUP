@@ -154,7 +154,20 @@ export default defineConfig({
       },
     },
   ],
+  build: {
+    outDir: 'dist',
+    sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ['react', 'react-dom', 'react-router-dom'],
+          firebase: ['firebase/app', 'firebase/firestore'],
+        }
+      }
+    }
+  },
   server: {
-    allowedHosts: true,
+    port: 3000,
+    host: true
   },
 });
