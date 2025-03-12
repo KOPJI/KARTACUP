@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Team } from '../types';
+import { Team, CardStats } from '../types';
 import { AlertTriangle, AlertCircle, Ban, Search, Plus, Minus, Check, X } from 'lucide-react';
 import { getTeams, updatePlayerCard, togglePlayerBan, getCardStats } from '../utils/firebase';
 
@@ -15,12 +15,6 @@ interface BannedPlayer {
   isBanned: boolean;
   banReason?: string;
   banDate?: string;
-}
-
-interface CardStats {
-  yellowCards: number;
-  redCards: number;
-  bannedPlayers: number;
 }
 
 const KartuLarangan: React.FC = () => {

@@ -64,3 +64,9 @@ export interface Group {
   name: string;
   teams: string[];
 }
+
+export interface CardStats {
+  yellowCards: number;
+  redCards: number;
+  bannedPlayers: number;
+}

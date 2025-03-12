@@ -1,14 +1,8 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore, doc, setDoc, collection, getDocs, getDoc, deleteDoc, query, where, addDoc, updateDoc, writeBatch } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Team, Match, Player, GoalScorer, Card, Group } from "../types";
+import { Team, Match, Player, GoalScorer, Card, Group, CardStats } from "../types";
 import { generateId } from "./dataInitializer";
-
-interface CardStats {
-  yellowCards: number;
-  redCards: number;
-  bannedPlayers: number;
-}
 
 // Firebase configuration
 const firebaseConfig = {
