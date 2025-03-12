@@ -5,19 +5,19 @@ import { saveMatch, saveTeam, getTeams, getGroups, initializeTeamsData, initiali
 const initialGroups: Group[] = [
   {
     name: 'A',
-    teams: []
+    teams: ['REMAJA PUTRA A', 'PALAPA A', 'TOXNET A', 'PERU FC B', 'LEMKA B', 'PORBA JAYA A']
   },
   {
     name: 'B',
-    teams: []
+    teams: ['DL GUNS A', 'TOXNET B', 'PORBA JAYA B', 'PUTRA MANDIRI B', 'REMAJA PUTRA B', 'ARUMBA FC B']
   },
   {
     name: 'C',
-    teams: []
+    teams: ['GANESA A', 'REMAJA PUTRA C', 'PERU FC C', 'PERKID FC', 'PUTRA MANDIRI A', 'DL GUNS A']
   },
   {
     name: 'D',
-    teams: []
+    teams: ['LEMKA A', 'BALPAS FC', 'ARUMBA FC A', 'GANESA B', 'PERU FC A', 'PELANA FC']
   }
 ];
 

@@ -379,23 +379,46 @@ export const getGroups = async (): Promise<Group[]> => {
 // Initialize Data
 export const initializeTeamsData = async (): Promise<void> => {
   try {
+    // Periksa apakah data grup sudah ada di Firestore
+    const existingGroupsSnapshot = await getDocs(collection(db, "groups"));
+    if (existingGroupsSnapshot.size > 0) {
+      console.log("Data grup sudah ada di Firestore. Menghapus data lama...");
+      
+      // Hapus semua grup yang ada
+      const batch = writeBatch(db);
+      existingGroupsSnapshot.forEach((doc) => {
+        batch.delete(doc.ref);
+      });
+      await batch.commit();
+      
+      // Hapus semua tim yang ada
+      const existingTeamsSnapshot = await getDocs(collection(db, "teams"));
+      if (existingTeamsSnapshot.size > 0) {
+        const teamsBatch = writeBatch(db);
+        existingTeamsSnapshot.forEach((doc) => {
+          teamsBatch.delete(doc.ref);
+        });
+        await teamsBatch.commit();
+      }
+    }
+    
     // Get initial groups data
     const initialGroups: Group[] = [
       {
         name: 'A',
-        teams: []
+        teams: ['REMAJA PUTRA A', 'PALAPA A', 'TOXNET A', 'PERU FC B', 'LEMKA B', 'PORBA JAYA A']
       },
       {
         name: 'B',
-        teams: []
+        teams: ['DL GUNS A', 'TOXNET B', 'PORBA JAYA B', 'PUTRA MANDIRI B', 'REMAJA PUTRA B', 'ARUMBA FC B']
       },
       {
         name: 'C',
-        teams: []
+        teams: ['GANESA A', 'REMAJA PUTRA C', 'PERU FC C', 'PERKID FC', 'PUTRA MANDIRI A', 'DL GUNS A']
       },
       {
         name: 'D',
-        teams: []
+        teams: ['LEMKA A', 'BALPAS FC', 'ARUMBA FC A', 'GANESA B', 'PERU FC A', 'PELANA FC']
       }
     ];
     
@@ -406,8 +429,17 @@ export const initializeTeamsData = async (): Promise<void> => {
     
     // Create teams
     const teams: Team[] = [];
+    // Gunakan Set untuk melacak nama tim yang sudah dibuat untuk mencegah duplikasi
+    const createdTeamNames = new Set<string>();
+    
     for (const group of initialGroups) {
       for (const teamName of group.teams) {
+        // Lewati jika tim dengan nama yang sama sudah dibuat
+        if (createdTeamNames.has(teamName)) {
+          console.log(`Tim ${teamName} sudah ada, melewati...`);
+          continue;
+        }
+        
         const teamId = generateId();
         const team: Team = {
           id: teamId,
@@ -425,9 +457,11 @@ export const initializeTeamsData = async (): Promise<void> => {
         
         teams.push(team);
         await setDoc(doc(db, "teams", teamId), team);
+        createdTeamNames.add(teamName);
       }
     }
     
+    console.log(`Berhasil membuat ${teams.length} tim`);
     return;
   } catch (error) {
     console.error("Error initializing teams data:", error);
