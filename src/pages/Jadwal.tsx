@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Match, Team } from '../types';
-import { ArrowRight, Calendar, Clock, Info, RotateCw, Squircle, Trash } from 'lucide-react';
+import { ArrowRight, Calendar, Clock, Info, RotateCw, Square, Trash } from 'lucide-react';
 import { generateSchedule } from '../utils/dataInitializer';
 import { getMatches, getTeams, deleteMatch, formatDateToIndonesian, saveMatch, deleteAllMatches } from '../utils/firebase';
 
@@ -291,7 +291,7 @@ const Jadwal: React.FC = () => {
           <div className="bg-white rounded-lg shadow-lg p-6 max-w-lg w-full">
             <div className="flex items-start gap-4">
               <div className="bg-red-100 p-2 rounded-full">
-                <Squircle className="text-red-600" size={24} />
+                <Square className="text-red-600" size={24} />
               </div>
               <div>
                 <h3 className="text-lg font-bold mb-2">Konfirmasi Hapus Semua Jadwal</h3>
