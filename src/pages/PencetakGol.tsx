@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Team } from '../types';
 import { Award, Medal, Search } from 'lucide-react';
+import { getTeams } from '../utils/firebase';
 
 interface TopScorer {
   id: string;
@@ -13,37 +14,57 @@ interface TopScorer {
 const PencetakGol: React.FC = () => {
   const [topScorers, setTopScorers] = useState<TopScorer[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    const teamsData = JSON.parse(localStorage.getItem('teams') || '[]') as Team[];
-    
-    // Create list of all players with their goals
-    const allScorers: TopScorer[] = [];
-    
-    teamsData.forEach(team => {
-      team.players.forEach(player => {
-        if (player.goals > 0) {
-          allScorers.push({
-            id: player.id,
-            name: player.name,
-            teamName: team.name,
-            teamId: team.id,
-            goals: player.goals
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        const teamsData = await getTeams();
+        
+        // Create list of all players with their goals
+        const allScorers: TopScorer[] = [];
+        
+        teamsData.forEach(team => {
+          (team.players || []).forEach(player => {
+            if (player.goals > 0) {
+              allScorers.push({
+                id: player.id,
+                name: player.name,
+                teamName: team.name,
+                teamId: team.id,
+                goals: player.goals
+              });
+            }
           });
-        }
-      });
-    });
+        });
+        
+        // Sort by goals (descending)
+        allScorers.sort((a, b) => b.goals - a.goals);
+        
+        setTopScorers(allScorers);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
     
-    // Sort by goals (descending)
-    allScorers.sort((a, b) => b.goals - a.goals);
-    
-    setTopScorers(allScorers);
+    fetchData();
   }, []);
 
   const filteredScorers = topScorers.filter(scorer => 
     scorer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     scorer.teamName.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-700"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

@@ -18,7 +18,9 @@ const Beranda: React.FC = () => {
         const teamsData = await getTeams();
         const matchesData = await getMatches();
         
-        setTeams(teamsData);
+        // Urutkan tim berdasarkan abjad A-Z
+        const sortedTeams = teamsData.sort((a, b) => a.name.localeCompare(b.name));
+        setTeams(sortedTeams);
         setMatches(matchesData);
         
         // Calculate top scorers (simplified version for home page)
@@ -26,9 +28,12 @@ const Beranda: React.FC = () => {
           (team.players || []).map(player => ({
             name: player.name,
             team: team.name,
-            goals: player.goals
+            goals: player.goals || 0
           }))
-        ).sort((a, b) => b.goals - a.goals).slice(0, 5);
+        )
+        .filter(player => player.goals > 0)
+        .sort((a, b) => b.goals - a.goals)
+        .slice(0, 5);
         
         setTopScorers(players);
       } catch (error) {

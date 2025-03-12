@@ -2,20 +2,36 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Team } from '../types';
 import { Plus, Search, Users } from 'lucide-react';
+import { getTeams, saveTeam } from '../utils/firebase';
 
 const DaftarTim: React.FC = () => {
   const [teams, setTeams] = useState<Team[]>([]);
   const [groups, setGroups] = useState<string[]>([]);
   const [activeGroup, setActiveGroup] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    const teamsData = JSON.parse(localStorage.getItem('teams') || '[]');
-    setTeams(teamsData);
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        const teamsData = await getTeams();
+        
+        // Urutkan tim berdasarkan abjad A-Z
+        const sortedTeams = teamsData.sort((a, b) => a.name.localeCompare(b.name));
+        setTeams(sortedTeams);
+        
+        // Extract unique group names
+        const uniqueGroups = Array.from(new Set(teamsData.map((team: Team) => team.group)));
+        setGroups(uniqueGroups);
+      } catch (error) {
+        console.error("Error fetching teams:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
     
-    // Extract unique group names
-    const uniqueGroups = Array.from(new Set(teamsData.map((team: Team) => team.group)));
-    setGroups(uniqueGroups);
+    fetchData();
   }, []);
 
   const filteredTeams = teams.filter(team => {
@@ -24,7 +40,7 @@ const DaftarTim: React.FC = () => {
     return matchesGroup && matchesSearch;
   });
 
-  const handleAddTeam = () => {
+  const handleAddTeam = async () => {
     const teamName = prompt('Masukkan nama tim:');
     if (!teamName) return;
     
@@ -48,14 +64,32 @@ const DaftarTim: React.FC = () => {
       points: 0
     };
     
-    const updatedTeams = [...teams, newTeam];
-    setTeams(updatedTeams);
-    localStorage.setItem('teams', JSON.stringify(updatedTeams));
-    
-    if (!groups.includes(groupName)) {
-      setGroups([...groups, groupName]);
+    try {
+      // Simpan ke Firestore
+      await saveTeam(newTeam);
+      
+      // Update state
+      const updatedTeams = [...teams, newTeam].sort((a, b) => a.name.localeCompare(b.name));
+      setTeams(updatedTeams);
+      
+      if (!groups.includes(groupName)) {
+        setGroups([...groups, groupName]);
+      }
+      
+      alert('Tim berhasil ditambahkan');
+    } catch (error) {
+      console.error("Error adding team:", error);
+      alert('Gagal menambahkan tim');
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-700"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
