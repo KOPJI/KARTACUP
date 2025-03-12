@@ -150,6 +150,7 @@ const DetailPertandingan: React.FC = () => {
     
     const newCard: Card = {
       id: Date.now().toString(),
+      matchId: match.id,
       teamId: cardForm.teamId,
       playerId: cardForm.playerId,
       type: cardForm.type,
