@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Team, Player, Match } from '../types';
-import { Calendar, Save, Trash2, UserPlus, Users, X, Shield, AlertTriangle, AlertCircle, Ban } from 'lucide-react';
-import { getTeamById, getMatches, saveTeam, getTeams } from '../utils/firebase';
+import { Calendar, Save, Trash2, UserPlus, Users, X, Shield, AlertTriangle, AlertCircle, Ban, Upload, Image, Edit } from 'lucide-react';
+import { getTeamById, getMatches, saveTeam, getTeams, uploadTeamLogo, uploadPlayerPhoto } from '../utils/firebase';
 
 interface PlayerFormData {
   name: string;
@@ -21,6 +21,9 @@ const DetailTim: React.FC = () => {
   const [isAddingPlayer, setIsAddingPlayer] = useState(false);
   const [activeTab, setActiveTab] = useState<ActiveTab>('info');
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isEditingPlayer, setIsEditingPlayer] = useState<string | null>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const playerPhotoInputRef = useRef<HTMLInputElement>(null);
   const [playerForm, setPlayerForm] = useState<PlayerFormData>({
     name: '',
     position: '',
@@ -211,6 +214,108 @@ const DetailTim: React.FC = () => {
     return foundTeam ? foundTeam.name : 'Tim tidak ditemukan';
   };
 
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!team || !e.target.files || !e.target.files[0]) return;
+    
+    try {
+      const file = e.target.files[0];
+      const logoUrl = await uploadTeamLogo(team.id, file);
+      
+      const updatedTeam = {
+        ...team,
+        logoUrl
+      };
+      
+      await saveTeam(updatedTeam);
+      setTeam(updatedTeam);
+      alert('Logo tim berhasil diupload');
+    } catch (error) {
+      console.error("Error uploading team logo:", error);
+      alert('Gagal mengupload logo tim');
+    }
+  };
+
+  const handlePlayerPhotoUpload = async (playerId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!team || !e.target.files || !e.target.files[0]) return;
+    
+    try {
+      const file = e.target.files[0];
+      const photoUrl = await uploadPlayerPhoto(team.id, playerId, file);
+      
+      const updatedPlayers = team.players.map(player => {
+        if (player.id === playerId) {
+          return {
+            ...player,
+            photoUrl
+          };
+        }
+        return player;
+      });
+      
+      const updatedTeam = {
+        ...team,
+        players: updatedPlayers
+      };
+      
+      await saveTeam(updatedTeam);
+      setTeam(updatedTeam);
+      alert('Foto pemain berhasil diupload');
+    } catch (error) {
+      console.error("Error uploading player photo:", error);
+      alert('Gagal mengupload foto pemain');
+    }
+  };
+
+  const handleEditPlayer = async (playerId: string) => {
+    if (!team) return;
+    
+    const player = team.players.find(p => p.id === playerId);
+    if (!player) return;
+    
+    setPlayerForm({
+      name: player.name,
+      position: player.position,
+      number: player.number
+    });
+    setIsEditingPlayer(playerId);
+  };
+
+  const savePlayerEdit = async () => {
+    if (!team || !isEditingPlayer) return;
+    if (!playerForm.name || !playerForm.position) {
+      alert('Silahkan isi semua data pemain');
+      return;
+    }
+    
+    const updatedPlayers = team.players.map(player => {
+      if (player.id === isEditingPlayer) {
+        return {
+          ...player,
+          name: playerForm.name,
+          position: playerForm.position,
+          number: playerForm.number
+        };
+      }
+      return player;
+    });
+    
+    const updatedTeam = {
+      ...team,
+      players: updatedPlayers
+    };
+    
+    try {
+      await saveTeam(updatedTeam);
+      setTeam(updatedTeam);
+      setIsEditingPlayer(null);
+      setPlayerForm({ name: '', position: '', number: 1 });
+      alert('Data pemain berhasil diperbarui');
+    } catch (error) {
+      console.error("Error updating player:", error);
+      alert('Gagal memperbarui data pemain');
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -231,9 +336,37 @@ const DetailTim: React.FC = () => {
     <div className="space-y-6">
       <div className="card">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 bg-blue-100 text-blue-800 rounded-full flex items-center justify-center">
-            <Users size={32} />
-          </div>
+          {team.logoUrl ? (
+            <div className="relative w-16 h-16">
+              <img 
+                src={team.logoUrl} 
+                alt={`Logo ${team.name}`}
+                className="w-full h-full object-cover rounded-full"
+              />
+              <button
+                onClick={() => logoInputRef.current?.click()}
+                className="absolute bottom-0 right-0 p-1 bg-white rounded-full shadow-lg hover:bg-gray-100"
+                title="Ubah Logo"
+              >
+                <Edit size={14} />
+              </button>
+            </div>
+          ) : (
+            <div 
+              onClick={() => logoInputRef.current?.click()}
+              className="w-16 h-16 bg-blue-100 text-blue-800 rounded-full flex items-center justify-center cursor-pointer hover:bg-blue-200"
+              title="Upload Logo"
+            >
+              <Upload size={32} />
+            </div>
+          )}
+          <input
+            type="file"
+            ref={logoInputRef}
+            className="hidden"
+            accept="image/*"
+            onChange={handleLogoUpload}
+          />
           <div>
             <h2 className="text-2xl font-bold">{team.name}</h2>
             <div className="text-slate-500">Grup {team.group} • {team.players.length} Pemain</div>
@@ -413,6 +546,7 @@ const DetailTim: React.FC = () => {
               <table className="w-full">
                 <thead>
                   <tr>
+                    <th>Foto</th>
                     <th>No</th>
                     <th>Nama</th>
                     <th>Posisi</th>
@@ -426,9 +560,67 @@ const DetailTim: React.FC = () => {
                 <tbody>
                   {team.players.map(player => (
                     <tr key={player.id} className={player.isBanned ? 'bg-red-50' : ''}>
+                      <td className="w-12">
+                        <div className="relative">
+                          {player.photoUrl ? (
+                            <img 
+                              src={player.photoUrl} 
+                              alt={player.name}
+                              className="w-10 h-10 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                              <Image size={20} className="text-gray-400" />
+                            </div>
+                          )}
+                          <button
+                            onClick={() => playerPhotoInputRef.current?.click()}
+                            className="absolute bottom-0 right-0 p-1 bg-white rounded-full shadow-lg hover:bg-gray-100"
+                            title="Upload Foto"
+                          >
+                            <Upload size={12} />
+                          </button>
+                          <input
+                            type="file"
+                            ref={playerPhotoInputRef}
+                            className="hidden"
+                            accept="image/*"
+                            onChange={(e) => handlePlayerPhotoUpload(player.id, e)}
+                          />
+                        </div>
+                      </td>
                       <td>{player.number}</td>
-                      <td>{player.name}</td>
-                      <td>{player.position}</td>
+                      <td>
+                        {isEditingPlayer === player.id ? (
+                          <input
+                            type="text"
+                            name="name"
+                            className="input input-sm"
+                            value={playerForm.name}
+                            onChange={handleInputChange}
+                          />
+                        ) : (
+                          player.name
+                        )}
+                      </td>
+                      <td>
+                        {isEditingPlayer === player.id ? (
+                          <select
+                            name="position"
+                            className="input input-sm"
+                            value={playerForm.position}
+                            onChange={handleInputChange}
+                          >
+                            <option value="">Pilih Posisi</option>
+                            <option value="Kiper">Kiper</option>
+                            <option value="Bek">Bek</option>
+                            <option value="Gelandang">Gelandang</option>
+                            <option value="Penyerang">Penyerang</option>
+                          </select>
+                        ) : (
+                          player.position
+                        )}
+                      </td>
                       <td>{player.goals}</td>
                       <td>{player.yellowCards || 0}</td>
                       <td>{player.redCards || 0}</td>
@@ -439,14 +631,45 @@ const DetailTim: React.FC = () => {
                           <span className="text-green-600 text-xs">Aktif</span>
                         )}
                       </td>
-                      <td>
-                        <button 
-                          className="text-red-500 hover:text-red-700 mr-2"
-                          onClick={() => removePlayer(player.id)}
-                          title="Hapus Pemain"
-                        >
-                          <Trash2 size={18} />
-                        </button>
+                      <td className="space-x-2">
+                        {isEditingPlayer === player.id ? (
+                          <>
+                            <button
+                              className="text-green-500 hover:text-green-700"
+                              onClick={savePlayerEdit}
+                              title="Simpan"
+                            >
+                              <Save size={18} />
+                            </button>
+                            <button
+                              className="text-slate-500 hover:text-slate-700"
+                              onClick={() => {
+                                setIsEditingPlayer(null);
+                                setPlayerForm({ name: '', position: '', number: 1 });
+                              }}
+                              title="Batal"
+                            >
+                              <X size={18} />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              className="text-blue-500 hover:text-blue-700"
+                              onClick={() => handleEditPlayer(player.id)}
+                              title="Edit Pemain"
+                            >
+                              <Edit size={18} />
+                            </button>
+                            <button 
+                              className="text-red-500 hover:text-red-700"
+                              onClick={() => removePlayer(player.id)}
+                              title="Hapus Pemain"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </>
+                        )}
                       </td>
                     </tr>
                   ))}
